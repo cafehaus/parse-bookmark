@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>借助浏览器解析bookemark书签数据</title>
+    <style>
+        body {
+            text-align: center;
+        }
+        h3 {
+            margin: 40px 0;
+            color: #57bc78;
+        }
+        button {
+            margin-top: 40px;
+            background-color: #57bc78;
+            border: 2px solid #57bc78;
+            color: #FFF;
+            cursor: pointer;
+            padding: 10px 20px;
+        }
+        .btn-plain {
+            border: 2px solid #57bc78;
+            background-color: #FFF;
+            color: #57bc78;
+            margin-left: 10px;
+        }
+        textarea {
+            width: 40%;
+            height: 300px;
+            margin-top: 20px;
+            padding: 10px;
+            border: 2px solid #57bc78;
+            outline: none;
+        }
+    </style>
+</head>
+<body>
+    <h3>借助浏览器解析bookemark书签数据</h3>
+    <input type="file" accept="text/html" id="inputFile">
+    <div>
+        <button onClick="handleFormat()">格式化成JSON</button>
+        <button class="btn-plain" onClick="handleCopy()">复制JSON数据</button>
+        <button class="btn-plain" onClick="handleMarkdown()">生成markdown</button>
+    </div>
+    <textarea readonly></textarea>
+</body>
+
+<script>
+    /**
+     * 点击格式化按钮
+     */
+    function handleFormat(e) {
+        const input = document.querySelector('input')
+        const files = input.files || []
+        const file = files[0]
+        if (!file) {
+            alert('请选择要格式的bookmark书签html文件')
+            return
+        }
+
+        // 读取文本
+        file.text().then(res => {
+            // 文本转 NodeList
+            const nodeList = textToNodeList(res)
+            // console.log(nodeList)
+
+            // 书签数据节点
+            const bookmarkNode = getBookmarkNode(nodeList)
+
+            // 书签数据节点
+            const json = nodeToJson(bookmarkNode)
+
+            const textarea = document.querySelector('textarea')
+            textarea.value = JSON.stringify(json, null, 2)
+
+            if (e === 'markdown') {
+                const markdown = jsonToMarkdown(json)
+                writeMarkdown(markdown)
+            }
+        })
+    }
+
+    /**
+     * 点击生成markdown按钮
+     */
+     function handleMarkdown() {
+        handleFormat('markdown')
+    }
+    
+    /**
+     * 点击复制按钮
+     */
+    function handleCopy() {
+        const textarea = document.querySelector('textarea')
+        const text = textarea.value
+
+        if (text) {
+            copyText(text)
+            // 不用定时器会报错 DOMException: Document is not focused
+            setTimeout(() => {
+                alert('复制成功！')
+            })
+        } else {
+            alert('没有可复制的数据')
+        }
+    }
+
+    /**
+     * 复制文本
+     * @param {string} text
+     */
+    function copyText(text) {
+        if (!text) return
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(text)
+        } else {
+            let textarea = document.createElement('textarea')
+            document.body.appendChild(textarea)
+            textarea.style.position = 'fixed'
+            textarea.style.clip = 'rect(0 0 0 0)'
+            textarea.style.top = '10px'
+            textarea.value = text
+            textarea.select()
+            document.execCommand('copy', true)
+            document.body.removeChild(textarea)
+        }
+    }
+
+    /**
+     * 文本转成 NodeList 节点
+     * @param {string} text
+     * @return NodeList
+     */
+    function textToNodeList(text) {
+        const div = document.createElement('div')
+        div.innerHTML = text
+
+        return div.childNodes
+    }
+
+    /**
+     * 找出书签数据节点
+     * @param {NodeList} nodeList
+     * @return Node
+     */
+    function getBookmarkNode(nodeList) {
+        // 书签数据节点：DL 那个节点
+        let bookNode = null
+        for (const node of nodeList) {
+            if (node.nodeName.toLocaleLowerCase() === 'dl') {
+                bookNode = node
+                break
+            }
+        }
+        return bookNode
+    }
+
+    /**
+     * dom节点转 json
+     * @param {Node} dom
+     * @return object
+     */
+    function nodeToJson(dom) {
+        const obj = {
+            nodeName: dom.nodeName.toLocaleLowerCase().replace('#', ''),
+        }
+
+        // nodeType：1-元素 3-文本，https://developer.mozilla.org/zh-CN/docs/Web/API/Node/nodeType
+        const attrs = getNodeAttrs(dom)
+        if (attrs) obj.attributes = attrs
+
+        // 子节点
+        let childNodes = Array.from(dom.childNodes)
+
+        // 可选：把空节点过滤掉
+        childNodes = childNodes.filter(n => {
+            const hasChildNodes = n.hasChildNodes()
+            // 空文本子节点，如 p 标签
+            let emptyTextChildNode = false
+            if (hasChildNodes) {
+                emptyTextChildNode = n.childNodes.length === 1 && n.childNodes[0].nodeType === 3 && !n.childNodes[0].textContent.trim()
+            }
+            return (n.hasChildNodes() && !emptyTextChildNode) || !!n.textContent.trim()
+        })
+
+        obj.children = childNodes.map(m => nodeToJson(m))
+
+        // 文本内容父标签中会包含所有子标签的文本，所以只有没有子元素的才去展示文本
+        if (!obj.children.length) {
+            obj.textContent = dom.textContent.trim()
+        }
+
+        return obj
+    }
+
+    /**
+     * 获取节点的属性对象
+     * @param {Node} dom
+     * @return object
+     */
+     function getNodeAttrs(dom) {
+        // nodeType 3 文本节点没有 attributes
+        const attr = Array.from(dom.attributes || [])
+        let info = {}
+        attr.map(m => {
+            info[m.name] = m.value
+        })
+        return attr.length ? info : null
+    }
+
+    /**
+     * json数据生成 markdown 文件
+     * @param {object} json
+     * @param {string} txt 初始化文本
+     * @return string
+     */
+     function jsonToMarkdown(json, txt = '') {
+        // 递归遍历
+        if (json.children && json.children.length) {
+            json.children.map(m => {
+                txt = jsonToMarkdown(m, txt)
+            })
+        }
+
+        // 实际有用的数据只有 h3 标题和 a 标签超链接
+        if (json.nodeName === 'h3') {
+            txt += `### ${json.children[0].textContent}\n`
+        }
+        if (json.nodeName === 'a') {
+            txt += `* [${json.children[0].textContent}](${json.attributes.href})\n`
+        }
+
+        return txt
+    }
+
+    /**
+     * 写入 markdown 文件
+     * @param {string} txt 写入的文本
+     * @param {string} fileName 文件名
+     */
+    function writeMarkdown(txt = '', fileName = 'index.md') {
+        if (!txt) return
+        const blob = new Blob([txt], { type: 'plain/text' })
+        const href = URL.createObjectURL(blob)
+
+        const element = document.createElement('a')
+        element.setAttribute('href', href)
+        element.setAttribute('download', fileName)
+        document.body.appendChild(element)
+        element.click()
+        document.body.removeChild(element)
+    }
+</script>
+</html>

@@ -1,0 +1,26 @@
+{
+  "name": "parse-bookmark",
+  "version": "1.0.0",
+  "description": "解析谷歌浏览器 Chrome 书签 bookmark 数据，同时支持浏览器版和 node 版",
+  "main": "src/index.js",
+  "scripts": {
+    "markdown": "node src/index"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cafehaus/parse-bookmark.git"
+  },
+  "keywords": [
+    "bookmark",
+    "Chrome"
+  ],
+  "author": "cafehaus",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/cafehaus/parse-bookmark/issues"
+  },
+  "homepage": "https://github.com/cafehaus/parse-bookmark#readme",
+  "dependencies": {
+    "htmlparser2": "^8.0.1"
+  }
+}
