@@ -3,8 +3,7 @@
 
 
 ## 浏览器
-浏览器中直接选择导出的标签文件处理就可以了：
-<iframe src="https://cafehaus.github.io/parse-bookmark/" frameborder=“0” scrolling="yes" height="360px" width="640px"></iframe>
+浏览器中打开网址[parse-bookmark](https://cafehaus.github.io/parse-bookmark/)直接选择导出的标签文件处理就可以了
 
 
 ### 参考
