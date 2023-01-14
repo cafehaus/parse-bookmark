@@ -71,7 +71,7 @@
             const bookmarkNode = getBookmarkNode(nodeList)
 
             // 书签数据节点
-            const json = nodeToJson(bookmarkNode)
+            const json = nodeToJson(bookmarkNode, e)
 
             const textarea = document.querySelector('textarea')
             textarea.value = JSON.stringify(json, null, 2)
@@ -163,7 +163,7 @@
      * @param {Node} dom
      * @return object
      */
-    function nodeToJson(dom) {
+    function nodeToJson(dom, e) {
         const obj = {
             nodeName: dom.nodeName.toLocaleLowerCase().replace('#', ''),
         }
@@ -186,11 +186,14 @@
             return (n.hasChildNodes() && !emptyTextChildNode) || !!n.textContent.trim()
         })
 
-        obj.children = childNodes.map(m => nodeToJson(m))
+        obj.children = childNodes.map(m => nodeToJson(m, e))
 
         // 文本内容父标签中会包含所有子标签的文本，所以只有没有子元素的才去展示文本
         if (!obj.children.length) {
-            obj.textContent = dom.textContent.trim()
+            let txt = dom.textContent.trim() || ''
+            // markdown 的超链接文字中要去除 html 标签简括号，否则 vuepress build 编译时会报错
+            const isMarkdown = e === 'markdown'
+            obj.textContent = isMarkdown ? txt.replace(/<\/?([\s\S]*)>/g, '$1') : txt
         }
 
         return obj
